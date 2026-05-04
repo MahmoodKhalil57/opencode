@@ -75,6 +75,7 @@ export const providerHandlers = HttpApiBuilder.group(InstanceHttpApi, "provider"
           providerID: ctx.params.providerID,
           method: ctx.payload.method,
           code: ctx.payload.code,
+          alias: ctx.payload.alias,
         })
         .pipe(Effect.catch(() => Effect.fail(new HttpApiError.BadRequest({}))))
       return true
