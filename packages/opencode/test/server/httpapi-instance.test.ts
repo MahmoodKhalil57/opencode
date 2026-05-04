@@ -10,18 +10,14 @@ import { resetDatabase } from "../fixture/db"
 import { disposeAllInstances, tmpdirScoped } from "../fixture/fixture"
 import { testEffect } from "../lib/effect"
 
-// Flip the experimental HttpApi flag so backend selection telemetry on the
-// production routes reports the right backend, and reset the database around
-// the test so per-instance state does not leak between runs. resetDatabase()
-// already calls disposeAllInstances(), so we don't repeat it.
+// Reset the database around the test so per-instance state does not leak
+// between runs. resetDatabase() already calls disposeAllInstances(), so we
+// don't repeat it.
 const testStateLayer = Layer.effectDiscard(
   Effect.gen(function* () {
-    const originalHttpApi = Flag.OPENCODE_EXPERIMENTAL_HTTPAPI
-    Flag.OPENCODE_EXPERIMENTAL_HTTPAPI = true
     yield* Effect.promise(() => resetDatabase())
     yield* Effect.addFinalizer(() =>
       Effect.promise(async () => {
-        Flag.OPENCODE_EXPERIMENTAL_HTTPAPI = originalHttpApi
         await resetDatabase()
       }),
     )

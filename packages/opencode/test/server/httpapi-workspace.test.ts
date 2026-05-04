@@ -22,14 +22,12 @@ import { testEffect } from "../lib/effect"
 void Log.init({ print: false })
 
 const originalWorkspaces = Flag.OPENCODE_EXPERIMENTAL_WORKSPACES
-const originalHttpApi = Flag.OPENCODE_EXPERIMENTAL_HTTPAPI
 const it = testEffect(
   Layer.mergeAll(NodeServices.layer, Project.defaultLayer, Session.defaultLayer, Workspace.defaultLayer),
 )
 
 function request(path: string, directory: string, init: RequestInit = {}, httpApi = true) {
   return Effect.promise(() => {
-    Flag.OPENCODE_EXPERIMENTAL_HTTPAPI = httpApi
     const headers = new Headers(init.headers)
     headers.set("x-opencode-directory", directory)
     return Promise.resolve(Server.Default().app.request(path, { ...init, headers }))
@@ -127,7 +125,6 @@ function eventStreamResponse() {
 afterEach(async () => {
   mock.restore()
   Flag.OPENCODE_EXPERIMENTAL_WORKSPACES = originalWorkspaces
-  Flag.OPENCODE_EXPERIMENTAL_HTTPAPI = originalHttpApi
   await disposeAllInstances()
   await resetDatabase()
 })
