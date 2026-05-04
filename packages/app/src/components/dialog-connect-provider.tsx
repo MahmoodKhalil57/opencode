@@ -491,6 +491,7 @@ export function DialogConnectProvider(props: { provider: string; alias?: string 
           providerID: props.provider,
           method: store.methodIndex,
           code,
+          alias: props.alias,
         })
         .then((value) => (value.error ? { ok: false as const, error: value.error } : { ok: true as const }))
         .catch((error) => ({ ok: false as const, error }))
@@ -543,6 +544,7 @@ export function DialogConnectProvider(props: { provider: string; alias?: string 
           .callback({
             providerID: props.provider,
             method: store.methodIndex,
+            alias: props.alias,
           })
           .then((value) => (value.error ? { ok: false as const, error: value.error } : { ok: true as const }))
           .catch((error) => ({ ok: false as const, error }))

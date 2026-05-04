@@ -66,6 +66,11 @@ export type AuthorizeInput = Schema.Schema.Type<typeof AuthorizeInput>
 export const CallbackInput = Schema.Struct({
   method: Schema.Finite.annotate({ description: "Auth method index" }),
   code: Schema.optional(Schema.String).annotate({ description: "OAuth authorization code" }),
+  alias: Schema.optional(Schema.String).annotate({
+    description:
+      "Optional alias — when set, the resulting credential is saved under this id instead of providerID. " +
+      "Lets the UI add multiple credentials per provider without overwriting (cheapcode fork addition).",
+  }),
 }).pipe(withStatics((s) => ({ zod: zod(s) })))
 export type CallbackInput = Schema.Schema.Type<typeof CallbackInput>
 
@@ -198,8 +203,15 @@ export const layer: Layer.Layer<Service, never, Auth.Service | Plugin.Service> =
       )
       if (!result || result.type !== "success") return yield* Effect.fail(new OauthCallbackFailed({}))
 
+      // cheapcode fork: when input.alias is set, save under the alias id
+      // instead of input.providerID. Lets UI add multiple credentials per
+      // provider without overwriting the existing one. The OAuth flow itself
+      // (authorize + callback exchange) still uses providerID for the
+      // canonical OAuth methods registry; only the save target is aliased.
+      const saveTarget = input.alias ?? input.providerID
+
       if ("key" in result) {
-        yield* auth.set(input.providerID, {
+        yield* auth.set(saveTarget, {
           type: "api",
           key: result.key,
         })
@@ -207,7 +219,7 @@ export const layer: Layer.Layer<Service, never, Auth.Service | Plugin.Service> =
 
       if ("refresh" in result) {
         const { type: _, provider: __, refresh, access, expires, ...extra } = result
-        yield* auth.set(input.providerID, {
+        yield* auth.set(saveTarget, {
           type: "oauth",
           access,
           refresh,
