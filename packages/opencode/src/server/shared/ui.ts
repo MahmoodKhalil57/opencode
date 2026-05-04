@@ -12,7 +12,11 @@ const embeddedUIPromise = Flag.OPENCODE_DISABLE_EMBEDDED_WEB_UI
 
 export const DEFAULT_CSP =
   "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; media-src 'self' data:; connect-src 'self' data:"
-export const UI_UPSTREAM = new URL("https://app.opencode.ai")
+// OPENCODE_UI_UPSTREAM env var lets a fork (e.g., cheapcode) point the runtime
+// at a local app dev server (`bun --cwd packages/app dev` → http://localhost:5173)
+// instead of the bundled-CDN'd default. Useful when iterating on UI patches
+// without running the full embed-build pipeline.
+export const UI_UPSTREAM = new URL(process.env.OPENCODE_UI_UPSTREAM ?? "https://app.opencode.ai")
 
 export const csp = (hash = "") =>
   `default-src 'self'; script-src 'self' 'wasm-unsafe-eval'${hash ? ` 'sha256-${hash}'` : ""}; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; media-src 'self' data:; connect-src 'self' data:`
