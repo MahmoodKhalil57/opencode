@@ -94,23 +94,24 @@ export function serveUIEffect(
     if (uiDist) {
       const cleanPath = path.replace(/^\//, "") || "index.html"
       const candidate = nodePath.join(uiDist, cleanPath)
-      const result = yield* services.fs.readFile(candidate).pipe(
-        Effect.map((body) => ({ ok: true as const, file: candidate, body })),
-        Effect.catchAll(() => Effect.succeed({ ok: false as const })),
-      )
-      if (result.ok) {
-        return embeddedUIResponse(result.file, result.body)
-      }
-      // SPA fallback: serve index.html for paths without an extension
-      if (!cleanPath.includes(".")) {
-        const indexCandidate = nodePath.join(uiDist, "index.html")
-        const indexResult = yield* services.fs.readFile(indexCandidate).pipe(
-          Effect.map((body) => ({ ok: true as const, file: indexCandidate, body })),
-          Effect.catchAll(() => Effect.succeed({ ok: false as const })),
-        )
-        if (indexResult.ok) {
-          return embeddedUIResponse(indexResult.file, indexResult.body)
+      const indexCandidate = nodePath.join(uiDist, "index.html")
+      const tryRead = yield* Effect.promise(async () => {
+        // Direct file read is enough — we control uiDist via env var
+        const file = Bun.file(candidate)
+        if (await file.exists()) {
+          return { file: candidate, body: new Uint8Array(await file.arrayBuffer()) }
         }
+        // SPA fallback for routes without an extension
+        if (!cleanPath.includes(".")) {
+          const idx = Bun.file(indexCandidate)
+          if (await idx.exists()) {
+            return { file: indexCandidate, body: new Uint8Array(await idx.arrayBuffer()) }
+          }
+        }
+        return null
+      })
+      if (tryRead) {
+        return embeddedUIResponse(tryRead.file, tryRead.body)
       }
       // file not found in local dist; fall through to upstream proxy below
     }
