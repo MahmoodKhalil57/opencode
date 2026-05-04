@@ -35,7 +35,8 @@ export const DialogNameCredential: Component<{ provider: string; providerName: s
   const [name, setName] = createSignal(suggested())
   const [error, setError] = createSignal<string | undefined>(undefined)
 
-  const submit = () => {
+  const submit = (e?: Event) => {
+    e?.preventDefault()
     const value = name().trim()
     if (!value) {
       setError(language.t("provider.connect.alias.required"))
@@ -57,34 +58,32 @@ export const DialogNameCredential: Component<{ provider: string; providerName: s
   }
 
   return (
-    <Dialog>
-      <Dialog.Title>
-        {language.t("provider.connect.alias.title", { provider: props.providerName })}
-      </Dialog.Title>
-      <div class="flex flex-col gap-3 px-6 py-4">
-        <p class="text-13-regular text-text-base">
-          {language.t("provider.connect.alias.description", { provider: props.providerName })}
-        </p>
+    <Dialog
+      title={language.t("provider.connect.alias.title", { provider: props.providerName })}
+      description={language.t("provider.connect.alias.description", { provider: props.providerName })}
+    >
+      <form onSubmit={submit} class="flex flex-col items-start gap-4">
         <TextField
+          autofocus
+          type="text"
           label={language.t("provider.connect.alias.label")}
+          placeholder={language.t("provider.connect.alias.placeholder", { provider: props.provider })}
           value={name()}
-          onInput={(e) => {
-            setName(e.currentTarget.value)
+          onChange={(v: string) => {
+            setName(v)
             setError(undefined)
           }}
-          placeholder={language.t("provider.connect.alias.placeholder", { provider: props.provider })}
-          error={error()}
-          autofocus
+          validationState={error() ? "invalid" : undefined}
         />
-      </div>
-      <Dialog.Footer>
-        <Button variant="ghost" onClick={() => dialog.hide()}>
-          {language.t("common.cancel")}
-        </Button>
-        <Button variant="primary" onClick={submit}>
-          {language.t("provider.connect.alias.continue")}
-        </Button>
-      </Dialog.Footer>
+        <div class="flex gap-2 self-end">
+          <Button variant="ghost" onClick={() => dialog.hide()}>
+            {language.t("common.cancel")}
+          </Button>
+          <Button variant="primary" type="submit">
+            {language.t("provider.connect.alias.continue")}
+          </Button>
+        </div>
+      </form>
     </Dialog>
   )
 }
