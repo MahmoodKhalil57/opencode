@@ -72,15 +72,13 @@ import { instanceContextLayer, instanceRouterMiddleware } from "./middleware/ins
 import { workspaceRouterMiddleware, workspaceRoutingLayer } from "./middleware/workspace-routing"
 import { disposeMiddleware } from "./lifecycle"
 import { memoMap } from "@opencode-ai/core/effect/memo-map"
-import * as ServerBackend from "@/server/backend"
 
 export const context = Context.makeUnsafe<unknown>(new Map())
 
 const runtime = HttpRouter.middleware()(
   Effect.succeed((effect) =>
     Effect.gen(function* () {
-      const selected = ServerBackend.select()
-      yield* Effect.annotateCurrentSpan(ServerBackend.attributes(ServerBackend.force(selected, "effect-httpapi")))
+      yield* Effect.annotateCurrentSpan({ "opencode.server.backend": "effect-httpapi" })
       return yield* effect
     }),
   ),
