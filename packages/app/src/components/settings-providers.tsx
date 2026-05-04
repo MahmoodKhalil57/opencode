@@ -96,6 +96,15 @@ export const SettingsProviders: Component = () => {
 
   const canDisconnect = (item: ProviderItem) => source(item) !== "env"
 
+  // cheapcode fork: only credential-bearing providers (oauth/api-key) can have
+  // multiple accounts. Config-driven providers (e.g. cheapcode tiers) and
+  // env-driven entries don't carry per-credential auth.json keys, so adding
+  // another would have nothing to save.
+  const canAddAnother = (item: ProviderItem) => {
+    const current = source(item)
+    return current === "api" || current === "custom" || current === undefined
+  }
+
   const note = (id: string) => PROVIDER_NOTES.find((item) => item.match(id))?.key
 
   const isConfigCustom = (providerID: string) => {
@@ -190,7 +199,7 @@ export const SettingsProviders: Component = () => {
                       }
                     >
                       <div class="flex items-center gap-1">
-                        <Show when={!row.alias}>
+                        <Show when={!row.alias && canAddAnother(row.item)}>
                           <Button
                             size="large"
                             variant="ghost"
