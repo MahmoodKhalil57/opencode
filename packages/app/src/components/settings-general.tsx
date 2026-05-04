@@ -685,6 +685,75 @@ export const SettingsGeneral: Component = () => {
     </div>
   )
 
+  // cheapcode fork: tile that fetches /cheapcode-info.json (written by
+  // `cheapcode web` on startup) and surfaces cheapcode-specific version +
+  // update state. Non-tech users who never see the terminal banner discover
+  // updates here. Failure to fetch (e.g. running vanilla opencode) is silent.
+  const [cheapcodeInfo] = createResource(async () => {
+    try {
+      const res = await fetch("/cheapcode-info.json", { cache: "no-store" })
+      if (!res.ok) return undefined
+      return (await res.json()) as {
+        cheapcode_version?: string
+        cheapcode_repo?: string
+        update_command?: string
+        update_status?: {
+          cheapcode?: { status: string; commitsAhead?: number }
+          fork?: { status: string; commitsAhead?: number }
+        }
+        generated_at?: string
+      }
+    } catch {
+      return undefined
+    }
+  })
+
+  const CheapcodeSection = () => (
+    <Show when={cheapcodeInfo()}>
+      {(info) => {
+        const cc = info().update_status?.cheapcode
+        const fk = info().update_status?.fork
+        const behind = cc?.status === "behind" || fk?.status === "behind"
+        const cmd = info().update_command ?? "cheapcode update"
+        return (
+          <div class="flex flex-col gap-1">
+            <h3 class="text-14-medium text-text-strong pb-2">cheapcode</h3>
+            <SettingsList>
+              <SettingsRow title="Version" description={info().cheapcode_version ?? "unknown"}>
+                <Show when={info().cheapcode_repo}>
+                  {(url) => (
+                    <Link href={url()}>
+                      <Button size="small" variant="ghost">GitHub</Button>
+                    </Link>
+                  )}
+                </Show>
+              </SettingsRow>
+              <SettingsRow
+                title="Updates"
+                description={
+                  behind
+                    ? `New commits available. Run \`${cmd}\` in your terminal, then restart cheapcode web.`
+                    : "Up to date."
+                }
+              >
+                <Show
+                  when={behind}
+                  fallback={
+                    <span class="text-14-regular text-text-weak">No updates</span>
+                  }
+                >
+                  <span class="text-14-regular" style={{ color: "var(--text-warning, #d97706)" }}>
+                    Update available
+                  </span>
+                </Show>
+              </SettingsRow>
+            </SettingsList>
+          </div>
+        )
+      }}
+    </Show>
+  )
+
   const UpdatesSection = () => (
     <div class="flex flex-col gap-1">
       <h3 class="text-14-medium text-text-strong pb-2">{language.t("settings.general.section.updates")}</h3>
@@ -748,6 +817,8 @@ export const SettingsGeneral: Component = () => {
         <SoundsSection />
 
         <UpdatesSection />
+
+        <CheapcodeSection />
 
         <Show when={linux()}>
           <div class="flex flex-col gap-1">
