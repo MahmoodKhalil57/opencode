@@ -3,6 +3,7 @@ import { AppFileSystem } from "@opencode-ai/core/filesystem"
 import { Effect, Stream } from "effect"
 import { HttpBody, HttpClient, HttpClientRequest, HttpServerRequest, HttpServerResponse } from "effect/unstable/http"
 import { createHash } from "node:crypto"
+import nodePath from "node:path"
 import { ProxyUtil } from "../proxy-util"
 
 const embeddedUIPromise = Flag.OPENCODE_DISABLE_EMBEDDED_WEB_UI
@@ -92,25 +93,23 @@ export function serveUIEffect(
     const uiDist = process.env.OPENCODE_UI_DIST
     if (uiDist) {
       const cleanPath = path.replace(/^\//, "") || "index.html"
-      const candidate = await import("node:path").then((p) => p.default.join(uiDist, cleanPath))
-      const fileExists = yield* fs.readFile(candidate).pipe(
-        Effect.map(() => true),
-        Effect.catchAll(() => Effect.succeed(false)),
+      const candidate = nodePath.join(uiDist, cleanPath)
+      const result = yield* services.fs.readFile(candidate).pipe(
+        Effect.map((body) => ({ ok: true as const, file: candidate, body })),
+        Effect.catchAll(() => Effect.succeed({ ok: false as const })),
       )
-      if (fileExists) {
-        const body = yield* fs.readFile(candidate)
-        return embeddedUIResponse(candidate, body)
+      if (result.ok) {
+        return embeddedUIResponse(result.file, result.body)
       }
       // SPA fallback: serve index.html for paths without an extension
       if (!cleanPath.includes(".")) {
-        const indexCandidate = await import("node:path").then((p) => p.default.join(uiDist, "index.html"))
-        const indexExists = yield* fs.readFile(indexCandidate).pipe(
-          Effect.map(() => true),
-          Effect.catchAll(() => Effect.succeed(false)),
+        const indexCandidate = nodePath.join(uiDist, "index.html")
+        const indexResult = yield* services.fs.readFile(indexCandidate).pipe(
+          Effect.map((body) => ({ ok: true as const, file: indexCandidate, body })),
+          Effect.catchAll(() => Effect.succeed({ ok: false as const })),
         )
-        if (indexExists) {
-          const body = yield* fs.readFile(indexCandidate)
-          return embeddedUIResponse(indexCandidate, body)
+        if (indexResult.ok) {
+          return embeddedUIResponse(indexResult.file, indexResult.body)
         }
       }
       // file not found in local dist; fall through to upstream proxy below
