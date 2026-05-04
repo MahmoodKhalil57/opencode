@@ -17,12 +17,18 @@ import { useGlobalSync } from "@/context/global-sync"
 import { useLanguage } from "@/context/language"
 import { useProviders } from "@/hooks/use-providers"
 
-export function DialogConnectProvider(props: { provider: string }) {
+export function DialogConnectProvider(props: { provider: string; alias?: string }) {
   const dialog = useDialog()
   const globalSync = useGlobalSync()
   const globalSDK = useGlobalSDK()
   const language = useLanguage()
   const providers = useProviders()
+  // When `alias` is set, the saved credential is keyed under the alias instead
+  // of `props.provider`. Lets users add multiple credentials per provider
+  // (e.g. multiple OpenRouter API keys, multiple OpenAI accounts). The OAuth
+  // flows still reference props.provider to look up the canonical OAuth
+  // methods registry; only auth.set's providerID swaps to the alias.
+  const saveTarget = () => props.alias ?? props.provider
 
   const all = () => {
     void import("./dialog-select-provider").then((x) => {
@@ -410,7 +416,7 @@ export function DialogConnectProvider(props: { provider: string }) {
 
       setFormStore("error", undefined)
       await globalSDK.client.auth.set({
-        providerID: props.provider,
+        providerID: saveTarget(),
         auth: {
           type: "api",
           key: apiKey,
