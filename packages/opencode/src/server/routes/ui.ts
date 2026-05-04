@@ -1,5 +1,6 @@
 import fs from "node:fs/promises"
 import { createHash } from "node:crypto"
+import nodePath from "node:path"
 import { AppFileSystem } from "@opencode-ai/core/filesystem"
 import { Hono } from "hono"
 import { proxy } from "hono/proxy"
@@ -22,6 +23,31 @@ export async function serveUI(request: Request) {
     }
 
     return Response.json({ error: "Not Found" }, { status: 404 })
+  }
+
+  // OPENCODE_UI_DIST env var: serve UI files from a local dist directory
+  // (typically packages/app/dist after `bun --cwd packages/app build`). Lets
+  // a fork (e.g., cheapcode) ship a custom-patched UI in dev mode without
+  // running the full embed-binary build pipeline. Falls through to upstream
+  // proxy if the file isn't found in the dist directory.
+  const uiDist = process.env.OPENCODE_UI_DIST
+  if (uiDist) {
+    const cleanPath = path.replace(/^\//, "") || "index.html"
+    const filePath = nodePath.join(uiDist, cleanPath)
+    if (await fs.exists(filePath)) {
+      const mime = AppFileSystem.mimeType(filePath)
+      const headers = new Headers({ "content-type": mime })
+      if (mime.startsWith("text/html")) headers.set("content-security-policy", DEFAULT_CSP)
+      return new Response(new Uint8Array(await fs.readFile(filePath)), { headers })
+    }
+    // Try index.html for SPA-router fallback
+    const indexPath = nodePath.join(uiDist, "index.html")
+    if (await fs.exists(indexPath) && !cleanPath.includes(".")) {
+      const headers = new Headers({ "content-type": "text/html" })
+      headers.set("content-security-policy", DEFAULT_CSP)
+      return new Response(new Uint8Array(await fs.readFile(indexPath)), { headers })
+    }
+    // File not found in local dist; fall through to upstream proxy below
   }
 
   const response = await proxy(upstreamURL(path), {
