@@ -4951,6 +4951,12 @@ export type ProviderOauthCallbackData = {
      */
     method: number
     code?: string
+    /**
+     * Optional alias — when set, the resulting credential is saved under this id
+     * instead of providerID. Lets the UI add multiple credentials per provider
+     * without overwriting (cheapcode fork addition).
+     */
+    alias?: string
   }
   path: {
     providerID: string
