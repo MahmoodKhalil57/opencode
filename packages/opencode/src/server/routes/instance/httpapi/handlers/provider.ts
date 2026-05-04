@@ -1,3 +1,4 @@
+import { Auth } from "@/auth"
 import { ProviderAuth } from "@/provider/auth"
 import { Config } from "@/config/config"
 import { ModelsDev } from "@/provider/models"
@@ -14,6 +15,7 @@ export const providerHandlers = HttpApiBuilder.group(InstanceHttpApi, "provider"
     const cfg = yield* Config.Service
     const provider = yield* Provider.Service
     const svc = yield* ProviderAuth.Service
+    const authSvc = yield* Auth.Service
 
     const list = Effect.fn("ProviderHttpApi.list")(function* () {
       const config = yield* cfg.get()
@@ -29,10 +31,30 @@ export const providerHandlers = HttpApiBuilder.group(InstanceHttpApi, "provider"
         mapValues(filtered, (item) => Provider.fromModelsDevProvider(item)),
         connected,
       )
+      // cheapcode fork: surface aliased credentials linked to canonical providers.
+      // Prefer the explicit providerID metadata recorded on aliased saves; fall
+      // back to a longest-prefix match against connected providers for older
+      // entries saved before we tracked the link.
+      const authEntries = yield* authSvc.all().pipe(Effect.orElseSucceed(() => ({})))
+      const inferProvider = (key: string): string | undefined => {
+        let best: string | undefined
+        for (const id of Object.keys(connected)) {
+          if (id !== key && key.startsWith(`${id}-`) && (!best || id.length > best.length)) best = id
+        }
+        return best
+      }
+      const credentials = Object.entries(authEntries).flatMap(([key, entry]) => {
+        if (connected[key]) return []
+        const linkedProviderID =
+          (entry as { providerID?: string }).providerID ?? inferProvider(key)
+        if (!linkedProviderID || !connected[linkedProviderID]) return []
+        return [{ key, providerID: linkedProviderID, type: entry.type }]
+      })
       return {
         all: Object.values(providers),
         default: Provider.defaultModelIDs(providers),
         connected: Object.keys(connected),
+        ...(credentials.length > 0 ? { credentials } : {}),
       }
     })
 

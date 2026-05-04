@@ -18,18 +18,24 @@ export class Oauth extends Schema.Class<Oauth>("OAuth")({
   expires: NonNegativeInt,
   accountId: Schema.optional(Schema.String),
   enterpriseUrl: Schema.optional(Schema.String),
+  // cheapcode fork: canonical provider id when this entry is saved under an alias key.
+  // Lets the UI link aliased credentials (e.g. "openai-2") back to their canonical
+  // provider ("openai") for icon/name/model resolution.
+  providerID: Schema.optional(Schema.String),
 }) {}
 
 export class Api extends Schema.Class<Api>("ApiAuth")({
   type: Schema.Literal("api"),
   key: Schema.String,
   metadata: Schema.optional(Schema.Record(Schema.String, Schema.String)),
+  providerID: Schema.optional(Schema.String),
 }) {}
 
 export class WellKnown extends Schema.Class<WellKnown>("WellKnownAuth")({
   type: Schema.Literal("wellknown"),
   key: Schema.String,
   token: Schema.String,
+  providerID: Schema.optional(Schema.String),
 }) {}
 
 const _Info = Schema.Union([Oauth, Api, WellKnown]).annotate({ discriminator: "type", identifier: "Auth" })

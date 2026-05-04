@@ -4880,6 +4880,16 @@ export type ProviderListResponses = {
       [key: string]: string
     }
     connected: Array<string>
+    /**
+     * cheapcode fork: aliased credentials linked back to their canonical provider.
+     * One entry per auth.json key whose `providerID` field points at a connected
+     * canonical provider (e.g. key="openai-2", providerID="openai").
+     */
+    credentials?: Array<{
+      key: string
+      providerID: string
+      type: "oauth" | "api" | "wellknown"
+    }>
   }
 }
 

@@ -1,6 +1,7 @@
 import { Hono } from "hono"
 import { describeRoute, validator, resolver } from "hono-openapi"
 import z from "zod"
+import { Auth } from "@/auth"
 import { Config } from "@/config/config"
 import { Provider } from "@/provider/provider"
 import { ModelsDev } from "@/provider/models"
@@ -50,10 +51,30 @@ export const ProviderRoutes = lazy(() =>
             mapValues(filtered, (x) => Provider.fromModelsDevProvider(x)),
             connected,
           )
+          // cheapcode fork: surface aliased credentials linked to canonical providers.
+          // Prefer the explicit providerID metadata recorded on aliased saves; fall
+          // back to a longest-prefix match against connected providers for older
+          // entries saved before we tracked the link.
+          const authEntries = yield* (yield* Auth.Service).all().pipe(Effect.orElseSucceed(() => ({})))
+          const inferProvider = (key: string): string | undefined => {
+            let best: string | undefined
+            for (const id of Object.keys(connected)) {
+              if (id !== key && key.startsWith(`${id}-`) && (!best || id.length > best.length)) best = id
+            }
+            return best
+          }
+          const credentials = Object.entries(authEntries).flatMap(([key, entry]) => {
+            if (connected[key]) return []
+            const linkedProviderID =
+              (entry as { providerID?: string }).providerID ?? inferProvider(key)
+            if (!linkedProviderID || !connected[linkedProviderID]) return []
+            return [{ key, providerID: linkedProviderID, type: entry.type }]
+          })
           return {
             all: Object.values(providers),
             default: Provider.defaultModelIDs(providers),
             connected: Object.keys(connected),
+            ...(credentials.length > 0 ? { credentials } : {}),
           }
         }),
     )

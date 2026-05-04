@@ -922,10 +922,20 @@ export type Info = Types.DeepMutable<Schema.Schema.Type<typeof Info>>
 
 const DefaultModelIDs = Schema.Record(Schema.String, Schema.String)
 
+// cheapcode fork: aliased credential entry pointing back at its canonical provider.
+// One auth.json key per object — used by the UI to render multiple credential rows
+// (e.g. "openai" + "openai-2") under the same canonical provider.
+const Credential = Schema.Struct({
+  key: Schema.String,
+  providerID: Schema.String,
+  type: Schema.Literals(["oauth", "api", "wellknown"]),
+})
+
 export const ListResult = Schema.Struct({
   all: Schema.Array(Info),
   default: DefaultModelIDs,
   connected: Schema.Array(Schema.String),
+  credentials: optionalOmitUndefined(Schema.Array(Credential)),
 }).pipe(withStatics((s) => ({ zod: zod(s) })))
 export type ListResult = Types.DeepMutable<Schema.Schema.Type<typeof ListResult>>
 

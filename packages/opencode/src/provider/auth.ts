@@ -208,12 +208,17 @@ export const layer: Layer.Layer<Service, never, Auth.Service | Plugin.Service> =
       // provider without overwriting the existing one. The OAuth flow itself
       // (authorize + callback exchange) still uses providerID for the
       // canonical OAuth methods registry; only the save target is aliased.
+      // We also record the canonical providerID inside the entry so the UI
+      // can robustly group aliases under their canonical provider for
+      // rendering (icon, name, model list).
       const saveTarget = input.alias ?? input.providerID
+      const aliasMeta = input.alias ? { providerID: input.providerID } : {}
 
       if ("key" in result) {
         yield* auth.set(saveTarget, {
           type: "api",
           key: result.key,
+          ...aliasMeta,
         })
       }
 
@@ -225,6 +230,7 @@ export const layer: Layer.Layer<Service, never, Auth.Service | Plugin.Service> =
           refresh,
           expires,
           ...extra,
+          ...aliasMeta,
         })
       }
     })

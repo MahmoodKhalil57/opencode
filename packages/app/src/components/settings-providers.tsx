@@ -17,6 +17,11 @@ import { SettingsList } from "./settings-list"
 type ProviderSource = "env" | "api" | "config" | "custom"
 type ProviderItem = ReturnType<ReturnType<typeof useProviders>["connected"]>[number]
 
+// cheapcode fork: one rendered row in the connected list. For canonical providers
+// authKey === item.id; for aliased credentials authKey is the auth.json key (e.g.
+// "openai-2") and item is the canonical provider so icon/name/type still resolve.
+type ConnectedRow = { authKey: string; alias?: string; item: ProviderItem }
+
 const PROVIDER_NOTES = [
   { match: (id: string) => id === "opencode", key: "dialog.provider.opencode.note" },
   { match: (id: string) => id === "opencode-go", key: "dialog.provider.opencodeGo.tagline" },
@@ -39,6 +44,25 @@ export const SettingsProviders: Component = () => {
     return providers
       .connected()
       .filter((p) => p.id !== "opencode" || Object.values(p.models).find((m) => m.cost?.input))
+  })
+
+  // cheapcode fork: flatten canonical + aliased credentials into one row list
+  const connectedRows = createMemo<ConnectedRow[]>(() => {
+    const canonical = connected()
+    const credentials = providers.credentials()
+    const byProvider = new Map<string, typeof credentials>()
+    for (const cred of credentials) {
+      const list = byProvider.get(cred.providerID) ?? []
+      list.push(cred)
+      byProvider.set(cred.providerID, list)
+    }
+    return canonical.flatMap((item) => {
+      const rows: ConnectedRow[] = [{ authKey: item.id, item }]
+      for (const cred of byProvider.get(item.id) ?? []) {
+        rows.push({ authKey: cred.key, alias: cred.key, item })
+      }
+      return rows
+    })
   })
 
   const popular = createMemo(() => {
@@ -147,16 +171,18 @@ export const SettingsProviders: Component = () => {
                 </div>
               }
             >
-              <For each={connected()}>
-                {(item) => (
+              <For each={connectedRows()}>
+                {(row) => (
                   <div class="group flex flex-wrap items-center justify-between gap-4 min-h-16 py-3 border-b border-border-weak-base last:border-none">
                     <div class="flex items-center gap-3 min-w-0">
-                      <ProviderIcon id={item.id} class="size-5 shrink-0 icon-strong-base" />
-                      <span class="text-14-medium text-text-strong truncate">{item.name}</span>
-                      <Tag>{type(item)}</Tag>
+                      <ProviderIcon id={row.item.id} class="size-5 shrink-0 icon-strong-base" />
+                      <span class="text-14-medium text-text-strong truncate">
+                        {row.alias ? `${row.item.name} (${row.alias})` : row.item.name}
+                      </span>
+                      <Tag>{type(row.item)}</Tag>
                     </div>
                     <Show
-                      when={canDisconnect(item)}
+                      when={canDisconnect(row.item)}
                       fallback={
                         <span class="text-14-regular text-text-base opacity-0 group-hover:opacity-100 transition-opacity duration-200 pr-3 cursor-default">
                           {language.t("settings.providers.connected.environmentDescription")}
@@ -164,18 +190,24 @@ export const SettingsProviders: Component = () => {
                       }
                     >
                       <div class="flex items-center gap-1">
+                        <Show when={!row.alias}>
+                          <Button
+                            size="large"
+                            variant="ghost"
+                            onClick={() => {
+                              dialog.show(() => (
+                                <DialogNameCredential provider={row.item.id} providerName={row.item.name} />
+                              ))
+                            }}
+                          >
+                            {language.t("settings.providers.connected.addAnother")}
+                          </Button>
+                        </Show>
                         <Button
                           size="large"
                           variant="ghost"
-                          onClick={() => {
-                            dialog.show(() => (
-                              <DialogNameCredential provider={item.id} providerName={item.name} />
-                            ))
-                          }}
+                          onClick={() => void disconnect(row.authKey, row.alias ?? row.item.name)}
                         >
-                          {language.t("settings.providers.connected.addAnother")}
-                        </Button>
-                        <Button size="large" variant="ghost" onClick={() => void disconnect(item.id, item.name)}>
                           {language.t("common.disconnect")}
                         </Button>
                       </div>

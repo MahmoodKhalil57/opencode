@@ -40,5 +40,9 @@ export function useProviders() {
         (p) => connected.has(p.id) && (p.id !== "opencode" || Object.values(p.models).some((m) => m.cost?.input)),
       )
     },
+    // cheapcode fork: aliased credentials linked to canonical providers.
+    // Each entry is one row beyond the canonical provider — used by the
+    // settings UI to render multiple credentials per provider.
+    credentials: () => providers().credentials ?? [],
   }
 }
