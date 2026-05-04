@@ -85,6 +85,37 @@ export function serveUIEffect(
 
     if (embeddedWebUI) return yield* serveEmbeddedUIEffect(path, services.fs, embeddedWebUI)
 
+    // OPENCODE_UI_DIST env var: serve UI files from a local packages/app/dist
+    // directory. Lets a fork (e.g. cheapcode) ship a custom-patched UI without
+    // running the full embed-binary build pipeline. Falls through to upstream
+    // proxy when the file isn't in the dist dir.
+    const uiDist = process.env.OPENCODE_UI_DIST
+    if (uiDist) {
+      const cleanPath = path.replace(/^\//, "") || "index.html"
+      const candidate = await import("node:path").then((p) => p.default.join(uiDist, cleanPath))
+      const fileExists = yield* fs.readFile(candidate).pipe(
+        Effect.map(() => true),
+        Effect.catchAll(() => Effect.succeed(false)),
+      )
+      if (fileExists) {
+        const body = yield* fs.readFile(candidate)
+        return embeddedUIResponse(candidate, body)
+      }
+      // SPA fallback: serve index.html for paths without an extension
+      if (!cleanPath.includes(".")) {
+        const indexCandidate = await import("node:path").then((p) => p.default.join(uiDist, "index.html"))
+        const indexExists = yield* fs.readFile(indexCandidate).pipe(
+          Effect.map(() => true),
+          Effect.catchAll(() => Effect.succeed(false)),
+        )
+        if (indexExists) {
+          const body = yield* fs.readFile(indexCandidate)
+          return embeddedUIResponse(indexCandidate, body)
+        }
+      }
+      // file not found in local dist; fall through to upstream proxy below
+    }
+
     const response = yield* services.client.execute(
       HttpClientRequest.make(request.method)(upstreamURL(path), {
         headers: ProxyUtil.headers(request.headers, { host: UI_UPSTREAM.host }),
