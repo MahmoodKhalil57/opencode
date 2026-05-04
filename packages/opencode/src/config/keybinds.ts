@@ -52,6 +52,7 @@ const KeybindsSchema = Schema.Struct({
   messages_undo: keybind("<leader>u", "Undo message"),
   messages_redo: keybind("<leader>r", "Redo message"),
   messages_toggle_conceal: keybind("<leader>h", "Toggle code block concealment in messages"),
+  permission_auto_accept_toggle: keybind("none", "Toggle auto-accept for edit permission requests"),
   tool_details: keybind("none", "Toggle tool details visibility"),
   model_list: keybind("<leader>m", "List available models"),
   model_cycle_recent: keybind("f2", "Next recently used model"),
