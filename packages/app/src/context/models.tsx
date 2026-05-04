@@ -36,14 +36,38 @@ export const { use: useModels, provider: ModelsProvider } = createSimpleContext(
       }),
     )
 
-    const available = createMemo(() =>
-      providers.connected().flatMap((p) =>
-        Object.values(p.models).map((m) => ({
-          ...m,
-          provider: p,
-        })),
-      ),
-    )
+    // cheapcode fork: expand each canonical provider into one entry per
+    // credential (canonical + each alias from M16 Provider.ListResult.credentials).
+    // The grouping key is provider.id, so this naturally renders one Models
+    // section per credential — operator can toggle visibility independently
+    // per account (e.g. enable GPT-5.4 for openai but not openai-2).
+    const available = createMemo(() => {
+      const connected = providers.connected()
+      const credentials = providers.credentials()
+      const aliasesByCanonical = new Map<string, string[]>()
+      for (const cred of credentials) {
+        const list = aliasesByCanonical.get(cred.providerID) ?? []
+        list.push(cred.key)
+        aliasesByCanonical.set(cred.providerID, list)
+      }
+      return connected.flatMap((p) => {
+        const aliases = aliasesByCanonical.get(p.id) ?? []
+        const credentialIds = [p.id, ...aliases]
+        return credentialIds.flatMap((credId) =>
+          Object.values(p.models).map((m) => ({
+            ...m,
+            provider: {
+              ...p,
+              id: credId,
+              name: credId === p.id ? p.name : `${p.name} (${credId})`,
+              // canonical id for icon lookup — alias group keys (e.g. "openai-2")
+              // wouldn't match the icon sprite otherwise.
+              canonical: p.id,
+            },
+          })),
+        )
+      })
+    })
 
     const release = createMemo(
       () =>

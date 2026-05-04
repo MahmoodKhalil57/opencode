@@ -42,18 +42,27 @@ export const SettingsModels: Component = () => {
     sortBy: (a, b) => a.name.localeCompare(b.name),
     groupBy: (x) => x.provider.id,
     sortGroupsBy: (a, b) => {
-      const aIndex = popularProviders.indexOf(a.category)
-      const bIndex = popularProviders.indexOf(b.category)
+      // cheapcode fork: a.category is the credential id (e.g. "openai-2");
+      // sort by canonical first so aliases group under their canonical row.
+      const aCanonical = (a.items[0].provider as { canonical?: string }).canonical ?? a.category
+      const bCanonical = (b.items[0].provider as { canonical?: string }).canonical ?? b.category
+      const aIndex = popularProviders.indexOf(aCanonical)
+      const bIndex = popularProviders.indexOf(bCanonical)
       const aPopular = aIndex >= 0
       const bPopular = bIndex >= 0
 
-      if (aPopular && !bPopular) return -1
-      if (!aPopular && bPopular) return 1
-      if (aPopular && bPopular) return aIndex - bIndex
-
-      const aName = a.items[0].provider.name
-      const bName = b.items[0].provider.name
-      return aName.localeCompare(bName)
+      if (aCanonical !== bCanonical) {
+        if (aPopular && !bPopular) return -1
+        if (!aPopular && bPopular) return 1
+        if (aPopular && bPopular) return aIndex - bIndex
+        const aName = a.items[0].provider.name
+        const bName = b.items[0].provider.name
+        return aName.localeCompare(bName)
+      }
+      // same canonical → canonical row first, aliases after by id
+      if (a.category === aCanonical) return -1
+      if (b.category === bCanonical) return 1
+      return a.category.localeCompare(b.category)
     },
   })
 
@@ -98,7 +107,10 @@ export const SettingsModels: Component = () => {
               {(group) => (
                 <div class="flex flex-col gap-1">
                   <div class="flex items-center gap-2 pb-2">
-                    <ProviderIcon id={group.category} class="size-5 shrink-0 icon-strong-base" />
+                    <ProviderIcon
+                      id={(group.items[0].provider as { canonical?: string }).canonical ?? group.category}
+                      class="size-5 shrink-0 icon-strong-base"
+                    />
                     <span class="text-14-medium text-text-strong">{group.items[0].provider.name}</span>
                   </div>
                   <SettingsList>
