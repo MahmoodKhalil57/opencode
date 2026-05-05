@@ -6,12 +6,18 @@ import { Context, Effect, Layer } from "effect"
 import { Flock } from "./util/flock"
 import { Flag } from "./flag/flag"
 
-const app = "opencode"
+// cheapcode fork: when CHEAPCODE_FORK=1 (set by the cheapcode CLI when
+// spawning the runtime), nest every XDG path under cheapcode/opencode/ so
+// vanilla opencode and cheapcode have ZERO shared filesystem state. Friend's
+// existing ~/.config/opencode and ~/.local/share/opencode are not read or
+// written by the cheapcode runtime under this mode.
+const isCheapcode = process.env.CHEAPCODE_FORK === "1"
+const app = isCheapcode ? path.join("cheapcode", "opencode") : "opencode"
 const data = path.join(xdgData!, app)
 const cache = path.join(xdgCache!, app)
 const config = path.join(xdgConfig!, app)
 const state = path.join(xdgState!, app)
-const tmp = path.join(os.tmpdir(), app)
+const tmp = path.join(os.tmpdir(), isCheapcode ? "cheapcode-opencode" : "opencode")
 
 const paths = {
   get home() {
